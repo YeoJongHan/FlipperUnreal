@@ -703,6 +703,16 @@ void writeAttackCount() {
   writeCenter(intstr);
 }
 
+void writeExit() {
+  display.clearScreen();
+  setBackground();
+  display.setFont(thinPixel7_10ptFontInfo);
+  display.setCursor(0, 54);
+  display.fontColor(TS_8b_Red,TS_8b_Blue);
+  display.println("Exit");  
+  display.fontColor(TS_8b_White,TS_8b_Blue);
+}
+
 void readInput() {
   display.clearScreen();
   display.setFont(thinPixel7_10ptFontInfo);

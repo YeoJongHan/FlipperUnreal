@@ -82,7 +82,10 @@ void setupMenuList() {
   menus[0b011001] = writeAttackCountMenu;
   menus[0b01100101] = changeAttackCount;
   menus[0b01100110] = changeAttackCount;
-  menus[0b01100111] = startAttack;
+  menus[0b01100111] = startListen;
+
+  menus[0b011010] = playIRRecord;
+
 }
 
 void sendDataBLE(uint8_t *sendBuffer, uint8_t sendLength) {
@@ -101,8 +104,19 @@ void changeAttackCount() {
   writeAttackCount();
 }
 
-void startAttack(){
+void playIRRecord() {
   uint8_t sendBuffer[21];
+  writeMessage("Starting...");
+
+  sendBuffer[0] = menuMode & 255;
+  sendBuffer[1] = menuMode >> 8;
+  
+  sendDataBLE(sendBuffer, 2);
+}
+
+void startListen(){
+  uint8_t sendBuffer[21];
+  writeMessage("Starting...");
 
   sendBuffer[0] = menuMode & 255;
   sendBuffer[1] = menuMode >> 8;
@@ -113,6 +127,7 @@ void startAttack(){
 
 void stopAttack(){
   uint8_t sendBuffer[21];
+  attackCount = 1;
 
   sendBuffer[0] = 'H';
   sendBuffer[1] = 'A';
@@ -135,18 +150,25 @@ void loop() {
     SerialMonitorInterface.println((char*)ble_rx_buffer);
 
     if (strncmp((char*)ble_rx_buffer, "OK", 2) == 0) {
-      PRINTF("GOTTEN %d\n",*(uint16_t*)(ble_rx_buffer + 2));
       if (*(uint16_t*)(ble_rx_buffer + 2) == 0b01100111) {
+        writeExit();
         strncpy(message, "Press key ", 10);
         strcpy(message + 10, (char*)ble_rx_buffer + 4);
-        writeMessage(message);
+        writeCenter(message);
         memset(message, 0, 21);
+      } else if (*(uint16_t*)(ble_rx_buffer + 2) == 0b011010) {
+        writeMessage("Playing...");
       } else {
         writeMessage("Unknown attack");
         stopAttack();
         delay(1000);
         backMenu(2);
       }
+    } else if (strncmp((char*)ble_rx_buffer, "SU", 2) == 0) {
+      writeMessage("Success!");
+      attackCount = 1;
+      delay(1000);
+      backMenu(2);
     } else {
       writeMessage("Error!");
       stopAttack();
@@ -154,7 +176,8 @@ void loop() {
       backMenu(2);
     }
 
-    ble_rx_buffer_len = 0;//clear afer reading
+    memset(ble_rx_buffer, 0, sizeof(ble_rx_buffer));
+    ble_rx_buffer_len = 0;//clear after reading
   }
 
   if (connected) {
@@ -162,9 +185,13 @@ void loop() {
     // drawMenuGif();
     if (buttonChoice != -1) {
       if ((buttonChoice ? ((menuMode << 2) | buttonChoice) : (menuMode >> 2)) < (sizeof(menus)/sizeof(menus[0]))) {
-        menuMode = buttonChoice ? ((menuMode << 2) | buttonChoice) : (menuMode >> 2);
-        PRINTF("RUNNING %d %d\n", menuMode, (sizeof(menus)/sizeof(menus[0])));
-        menus[menuMode]();
+        if (!buttonChoice && menuMode == 0b01100111) {
+          stopAttack();
+        } else {
+          menuMode = buttonChoice ? ((menuMode << 2) | buttonChoice) : (menuMode >> 2);
+          PRINTF("RUNNING %d %d\n", menuMode, (sizeof(menus)/sizeof(menus[0])));
+          menus[menuMode]();
+        }
       } else {
         PRINTF("ELSE PRINTED\n");
       }
@@ -172,24 +199,5 @@ void loop() {
   } else {
     writeDisconnected();
   }
-
-  // if (SerialMonitorInterface.available()) {//Check if serial input is available to send
-  //   delay(10);//should catch input
-  //   uint8_t sendBuffer[21];
-  //   uint8_t sendLength = 0;
-  //   while (SerialMonitorInterface.available() && sendLength < 19) {
-  //     sendBuffer[sendLength] = SerialMonitorInterface.read();
-  //     sendLength++;
-  //   }
-  //   if (SerialMonitorInterface.available()) {
-  //     SerialMonitorInterface.print(F("Input truncated, dropped: "));
-  //     if (SerialMonitorInterface.available()) {
-  //       SerialMonitorInterface.write(SerialMonitorInterface.read());
-  //     }
-  //   }
-    
-  //   sendDataBLE(sendBuffer, sendLength);
-
-  // }
 }
 
